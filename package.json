@@ -1,0 +1,27 @@
+{
+	"name": "miri",
+	"module": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"miri": "./src/index.ts"
+	},
+	"scripts": {
+		"start": "bun run src/index.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/marked-terminal": "^6.1.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@openrouter/ai-sdk-provider": "^2.3.3",
+		"ai": "^6.0.134",
+		"highlight.js": "^11.11.1",
+		"marked": "^17.0.5",
+		"marked-highlight": "^2.2.3",
+		"marked-terminal": "^7.3.0"
+	}
+}
