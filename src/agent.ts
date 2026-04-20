@@ -15,7 +15,7 @@ export async function runAgent() {
 		messages.push({ role: "user", content: userInput });
 
 		for (let i = 0; i < MAX_ITERATIONS; i++) {
-			const userMessage = messages[messages.length - 1];
+			// const userMessage = messages[messages.length - 1];
 
 			const result = streamText({ model, messages });
 
