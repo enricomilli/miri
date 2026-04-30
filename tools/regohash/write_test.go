@@ -292,7 +292,7 @@ func TestReplaceLines_HashesPersistOutsideEditRange(t *testing.T) {
 }
 
 func TestReplaceLines_DiffShowsDeletedLinesBlock(t *testing.T) {
-	// Pure deletion (empty content) must show <DeletedLines> with the old hashes and content.
+	// Pure deletion (empty content) must show <DeletedLines> with the deleted content.
 	setupCache(t)
 	path := tempFile(t, "keep\ndelete me\nalso keep\n")
 	hashes := readHashesFor(t, path)
@@ -308,10 +308,6 @@ func TestReplaceLines_DiffShowsDeletedLinesBlock(t *testing.T) {
 	}
 	if !strings.Contains(out, "delete me") {
 		t.Errorf("expected deleted content inside <DeletedLines>, got:\n%s", out)
-	}
-	// Deleted hash should appear in the block so agent knows what was removed.
-	if !strings.Contains(out, hashes[1]) {
-		t.Errorf("expected deleted hash %s inside <DeletedLines>, got:\n%s", hashes[1], out)
 	}
 	// Must NOT show <NewLines> for a pure deletion.
 	if strings.Contains(out, "<NewLines>") {

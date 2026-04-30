@@ -41,3 +41,17 @@ func findHashIndex(hashes []string, hash string) (int, error) {
 	}
 	return 0, fmt.Errorf("hash %q not found — run: rh read <file>", hash)
 }
+
+// isFormatError reports whether hash fails the 4-lowercase-letter format check.
+// Used to distinguish format errors from "not found" errors before opening files.
+func isFormatError(hash string) bool {
+	if len(hash) != 4 {
+		return true
+	}
+	for _, c := range hash {
+		if c < 'a' || c > 'z' {
+			return true
+		}
+	}
+	return false
+}

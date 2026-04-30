@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -127,7 +128,26 @@ func replaceLines(path, startHash, endHash, newContentStr string) error {
 }
 
 func previewLines(path, startHash, endHash string) error {
+	// Validate hash formats before any I/O so format errors surface immediately.
+	if _, err := findHashIndex(nil, startHash); err != nil {
+		if isFormatError(startHash) {
+			return fmt.Errorf("invalid start hash: %v", err)
+		}
+	}
+	if _, err := findHashIndex(nil, endHash); err != nil {
+		if isFormatError(endHash) {
+			return fmt.Errorf("invalid end hash: %v", err)
+		}
+	}
+
 	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+
+	// Read the full file and build/reuse the complete hash list — same as rh read.
+	// This registers the file so a write can follow without re-reading.
+	lines, err := readFileLines(path)
 	if err != nil {
 		return err
 	}
@@ -138,6 +158,10 @@ func previewLines(path, startHash, endHash string) error {
 	}
 
 	state := c.Files[abs]
+
+	if len(state.LineHashes) != len(lines) {
+		state.LineHashes = buildHashList(c, len(lines))
+	}
 
 	startIdx, err := findHashIndex(state.LineHashes, startHash)
 	if err != nil {
@@ -151,15 +175,54 @@ func previewLines(path, startHash, endHash string) error {
 		return fmt.Errorf("start hash (%s) represents a line after end hash (%s)", startHash, endHash)
 	}
 
+	for i := startIdx; i <= endIdx && i < len(lines); i++ {
+		fmt.Printf("%s %s\n", state.LineHashes[i], lines[i])
+	}
+
+	state.LastReadAt = time.Now()
+	c.Files[abs] = state
+	return saveCache(c)
+}
+
+// grepFile prints every line in path that matches pattern, prefixed with its hash.
+// The full file is registered in the cache (identical to rh read), so a write can
+// follow immediately using any of the returned hashes.
+func grepFile(path, pattern string) error {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid pattern: %v", err)
+	}
+
 	lines, err := readFileLines(path)
 	if err != nil {
 		return err
 	}
 
-	for i := startIdx; i <= endIdx && i < len(lines); i++ {
-		fmt.Printf("%s %s\n", state.LineHashes[i], lines[i])
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	c, err := loadCache()
+	if err != nil {
+		return err
+	}
+
+	state := c.Files[abs]
+
+	if len(state.LineHashes) != len(lines) {
+		state.LineHashes = buildHashList(c, len(lines))
+	}
+
+	for i, line := range lines {
+		if re.MatchString(line) {
+			fmt.Printf("%s %s\n", state.LineHashes[i], line)
+		}
+	}
+
+	state.LastReadAt = time.Now()
+	c.Files[abs] = state
+	return saveCache(c)
 }
 
 func appendToFile(path, content string) error {

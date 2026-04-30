@@ -43,6 +43,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "grep":
+		if len(os.Args) != 4 {
+			fmt.Fprintln(os.Stderr, "Usage: rh grep <file> <pattern>")
+			os.Exit(1)
+		}
+		if err := grepFile(os.Args[2], os.Args[3]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "preview":
 		if len(os.Args) != 5 {
 			fmt.Fprintln(os.Stderr, "Usage: rh preview <file> <start_hash> <end_hash>")
@@ -52,7 +62,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-
 	case "append":
 		if len(os.Args) != 3 {
 			fmt.Fprintln(os.Stderr, "Usage: rh append <file>")
@@ -110,10 +119,19 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "        efgh line two       <- shown with its old hash for reference")
 	fmt.Fprintln(os.Stderr, "      </DeletedLines>")
 	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "  rh grep <file> <pattern>")
+	fmt.Fprintln(os.Stderr, "    Print every line matching pattern (regexp) prefixed with its hash.")
+	fmt.Fprintln(os.Stderr, "    Registers the full file — a write can follow using any returned hash")
+	fmt.Fprintln(os.Stderr, "    without needing a separate rh read first.")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "      rh grep main.go 'func '")
+	fmt.Fprintln(os.Stderr, "      abcd func main() {")
+	fmt.Fprintln(os.Stderr, "      efgh func printUsage() {")
+	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "  rh preview <file> <start_hash> <end_hash>")
 	fmt.Fprintln(os.Stderr, "    Show the lines in the given range without modifying the file.")
-	fmt.Fprintln(os.Stderr, "    Output format is identical to rh read, so hashes can be copied")
-	fmt.Fprintln(os.Stderr, "    directly into a write command.")
+	fmt.Fprintln(os.Stderr, "    Registers the full file — same as rh read, so a write can follow")
+	fmt.Fprintln(os.Stderr, "    directly using any hash in the file, not just the previewed range.")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "  rh append <file>")
 	fmt.Fprintln(os.Stderr, "    Add content from stdin to the end of the file.")
@@ -132,5 +150,5 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "GUARDS")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "  rh write and rh append are blocked if the file was modified outside")
-	fmt.Fprintln(os.Stderr, "  of rh since the last read. Run rh read again to resync.")
+	fmt.Fprintln(os.Stderr, "  of rh since the last read. Run rh read, grep, or preview to resync.")
 }
