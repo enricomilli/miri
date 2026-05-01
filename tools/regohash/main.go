@@ -44,11 +44,11 @@ func main() {
 			os.Exit(1)
 		}
 	case "grep":
-		if len(os.Args) != 4 {
-			fmt.Fprintln(os.Stderr, "Usage: rh grep <file> <pattern>")
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: rh grep <grep_args...>")
 			os.Exit(1)
 		}
-		if err := grepFile(os.Args[2], os.Args[3]); err != nil {
+		if err := grepFiles(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -119,14 +119,22 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "        efgh line two       <- shown with its old hash for reference")
 	fmt.Fprintln(os.Stderr, "      </DeletedLines>")
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  rh grep <file> <pattern>")
-	fmt.Fprintln(os.Stderr, "    Print every line matching pattern (regexp) prefixed with its hash.")
-	fmt.Fprintln(os.Stderr, "    Registers the full file — a write can follow using any returned hash")
-	fmt.Fprintln(os.Stderr, "    without needing a separate rh read first.")
+	fmt.Fprintln(os.Stderr, "  rh grep <grep_args...>")
+	fmt.Fprintln(os.Stderr, "    Run system grep, force filename + line metadata, then replace each")
+	fmt.Fprintln(os.Stderr, "    matching line number with that file's stable rh hash.")
+	fmt.Fprintln(os.Stderr, "    Matching flags and file args are passed to grep, so -i, -E, -F, -w,")
+	fmt.Fprintln(os.Stderr, "    -A, -B, -C, multiple files, and recursive searches work.")
+	fmt.Fprintln(os.Stderr, "    Output is grouped into readable blocks:")
+	fmt.Fprintln(os.Stderr, "      MATCH - <file>:")
+	fmt.Fprintln(os.Stderr, "      <hash> <match or context line>")
+	fmt.Fprintln(os.Stderr, "    Every matched file is registered — a write can follow using any")
+	fmt.Fprintln(os.Stderr, "    returned hash without needing a separate rh read first.")
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "      rh grep main.go 'func '")
+	fmt.Fprintln(os.Stderr, "      rh grep 'func ' main.go ops.go")
+	fmt.Fprintln(os.Stderr, "      rh grep -i -E 'usage|func ' *.go")
+	fmt.Fprintln(os.Stderr, "      rh grep -R -A 2 'func main' .")
+	fmt.Fprintln(os.Stderr, "      MATCH - main.go:")
 	fmt.Fprintln(os.Stderr, "      abcd func main() {")
-	fmt.Fprintln(os.Stderr, "      efgh func printUsage() {")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "  rh preview <file> <start_hash> <end_hash>")
 	fmt.Fprintln(os.Stderr, "    Show the lines in the given range without modifying the file.")
@@ -150,5 +158,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "GUARDS")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "  rh write and rh append are blocked if the file was modified outside")
-	fmt.Fprintln(os.Stderr, "  of rh since the last read. Run rh read, grep, or preview to resync.")
+	fmt.Fprintln(os.Stderr, "  of rh since the last read/grep/preview/write. rh stores a content")
+	fmt.Fprintln(os.Stderr, "  checksum, so same-line-count external edits are detected too.")
+	fmt.Fprintln(os.Stderr, "  Run rh read, grep, or preview to resync before writing.")
 }

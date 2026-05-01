@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -79,6 +80,9 @@ func TestSaveAndLoadCache_RoundTrip(t *testing.T) {
 	}
 	if len(state.LineHashes) != 3 || state.LineHashes[1] != "efgh" {
 		t.Errorf("LineHashes not preserved: %v", state.LineHashes)
+	}
+	if state.ContentHash != "" {
+		t.Errorf("ContentHash should be empty in this legacy-style round trip, got %q", state.ContentHash)
 	}
 }
 
@@ -202,6 +206,48 @@ func TestCheckWriteAllowed_ExternalModification_Blocked(t *testing.T) {
 		t.Fatal("expected error for external modification, got nil")
 	}
 	if !strings.Contains(err.Error(), "modified externally") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestCheckWriteAllowed_ContentHashAllowsUnchangedFile(t *testing.T) {
+	setupCache(t)
+	path := tempFile(t, "same\nline count\n")
+	hash, err := fileContentHash(path)
+	if err != nil {
+		t.Fatalf("fileContentHash: %v", err)
+	}
+	cacheStateFor(t, path, FileState{
+		LastReadAt:  time.Now().Add(-2 * time.Second),
+		ContentHash: hash,
+	})
+
+	if err := checkWriteAllowed(path); err != nil {
+		t.Fatalf("expected unchanged content hash to be allowed, got: %v", err)
+	}
+}
+
+func TestCheckWriteAllowed_ContentHashBlocksSameLineCountExternalEdit(t *testing.T) {
+	setupCache(t)
+	path := tempFile(t, "alpha\nbeta\n")
+	hash, err := fileContentHash(path)
+	if err != nil {
+		t.Fatalf("fileContentHash: %v", err)
+	}
+	cacheStateFor(t, path, FileState{
+		LastReadAt:  time.Now().Add(1 * time.Hour),
+		ContentHash: hash,
+	})
+
+	if err := os.WriteFile(path, []byte("gamma\ndelta\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	err = checkWriteAllowed(path)
+	if err == nil {
+		t.Fatal("expected stale hash error after same-line-count external edit")
+	}
+	if !strings.Contains(err.Error(), "file changed externally") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

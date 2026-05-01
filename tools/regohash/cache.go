@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,8 +14,9 @@ import (
 var overrideCachePath string
 
 type FileState struct {
-	LineHashes []string  `json:"line_hashes"` // persistent hash per line, in order
-	LastReadAt time.Time `json:"last_read_at"` // for external modification guard
+	LineHashes  []string  `json:"line_hashes"`  // persistent hash per line, in order
+	LastReadAt  time.Time `json:"last_read_at"` // for external modification guard
+	ContentHash string    `json:"content_hash,omitempty"`
 }
 
 type Cache struct {
@@ -85,6 +88,15 @@ func buildHashList(c *Cache, count int) []string {
 	return hashes
 }
 
+func fileContentHash(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
 // checkWriteAllowed returns an error if the file was modified externally since the last read.
 func checkWriteAllowed(filePath string) error {
 	abs, err := filepath.Abs(filePath)
@@ -99,6 +111,19 @@ func checkWriteAllowed(filePath string) error {
 	state, exists := c.Files[abs]
 	if !exists {
 		// File never read via rh — no state to enforce against.
+		return nil
+	}
+
+	if state.ContentHash != "" {
+		currentHash, err := fileContentHash(abs)
+		if err != nil {
+			return err
+		}
+		if currentHash != state.ContentHash {
+			return fmt.Errorf(
+				"stale hashes: file changed externally since your last rh read/grep/preview/write\nre-read before writing: rh read %s", filePath,
+			)
+		}
 		return nil
 	}
 
